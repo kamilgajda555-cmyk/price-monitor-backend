@@ -40,8 +40,15 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements
 COPY requirements.txt .
 
+# Upgrade pip and install email-validator FIRST (critical dependency)
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir email-validator>=2.1.0 dnspython>=2.3.0
+
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Verify email-validator is installed
+RUN python -c "import email_validator; print('email-validator installed successfully')"
 
 # Install Playwright browsers (without separate install-deps - already handled above)
 RUN playwright install chromium --with-deps || playwright install chromium
