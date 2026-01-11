@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Playwright dependencies
+# Install Playwright dependencies with font packages
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -30,6 +30,11 @@ RUN apt-get update && apt-get install -y \
     libpango-1.0-0 \
     libcairo2 \
     libglib2.0-0 \
+    fonts-liberation \
+    fonts-noto-color-emoji \
+    fonts-unifont \
+    libxshmfence1 \
+    libglu1-mesa \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
@@ -38,9 +43,8 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browsers
-RUN playwright install chromium
-RUN playwright install-deps chromium
+# Install Playwright browsers (without separate install-deps - already handled above)
+RUN playwright install chromium --with-deps || playwright install chromium
 
 # Copy application code
 COPY . .
