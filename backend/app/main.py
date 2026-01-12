@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
 
-from app.api import products, sources, alerts, reports, auth, dashboard, scraping
+from app.api import products, sources, alerts, reports, auth, dashboard, scraping, analytics
 from app.models.database import engine, Base
 
 load_dotenv()
@@ -41,6 +41,7 @@ app.include_router(sources.router, prefix=f"{api_prefix}/sources", tags=["source
 app.include_router(alerts.router, prefix=f"{api_prefix}/alerts", tags=["alerts"])
 app.include_router(reports.router, prefix=f"{api_prefix}/reports", tags=["reports"])
 app.include_router(scraping.router, prefix=f"{api_prefix}/scrape", tags=["scraping"])
+app.include_router(analytics.router, prefix=f"{api_prefix}/analytics", tags=["analytics"])
 
 @app.get("/")
 async def root():
