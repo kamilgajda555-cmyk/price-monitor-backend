@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime
 
 from app.models.database import get_db
@@ -11,23 +11,22 @@ router = APIRouter()
 
 @router.post("/all")
 def trigger_scrape_all(
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """
-    Trigger scraping for all active products from all active sources
+    Trigger scraping for all active products from all active sources.
+    Uses Celery Worker for async processing.
     """
     try:
-        # Import here to avoid circular dependency
         from app.tasks.scraping_tasks import scrape_all_products
         
-        # Queue the scraping task
+        # Queue the scraping task in Celery
         task = scrape_all_products.delay()
         
         return {
             "status": "queued",
-            "message": "Scraping job has been queued",
+            "message": "Scraping job has been queued in Celery",
             "task_id": task.id
         }
     except Exception as e:
@@ -41,14 +40,13 @@ def trigger_scrape_all(
 def trigger_scrape_product(
     product_id: int,
     source_id: Optional[int] = None,
-    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """
-    Trigger scraping for a specific product
-    If source_id is provided, scrape only from that source
-    Otherwise, scrape from all active sources for this product
+    Trigger scraping for a specific product.
+    If source_id is provided, scrape only from that source.
+    Otherwise, scrape from all active sources for this product.
     """
     try:
         from app.tasks.scraping_tasks import scrape_product
@@ -101,7 +99,7 @@ def trigger_scrape_source(
     current_user = Depends(get_current_user)
 ):
     """
-    Trigger scraping for all products from a specific source
+    Trigger scraping for all products from a specific source.
     """
     try:
         from app.tasks.scraping_tasks import scrape_products_by_source
@@ -131,7 +129,7 @@ def get_scrape_jobs(
     current_user = Depends(get_current_user)
 ):
     """
-    Get recent scraping jobs and their status
+    Get recent scraping jobs and their status.
     """
     jobs = db.query(ScrapeJob).order_by(ScrapeJob.started_at.desc()).limit(limit).all()
     
@@ -154,7 +152,7 @@ def get_scrape_status(
     current_user = Depends(get_current_user)
 ):
     """
-    Get status of a scraping task
+    Get status of a specific Celery scraping task.
     """
     try:
         from app.tasks.celery_app import celery_app
@@ -164,8 +162,33 @@ def get_scrape_status(
         return {
             "task_id": task_id,
             "status": task.status,
-            "result": task.result if task.ready() else None
+            "result": task.result if task.ready() else None,
+            "info": task.info
         }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/status")
+def get_scraping_status(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Get current scraping system status.
+    """
+    total_products = db.query(Product).filter(Product.is_active == True).count()
+    total_sources = db.query(Source).filter(Source.is_active == True).count()
+    total_mappings = db.query(ProductSource).filter(ProductSource.is_active == True).count()
+    
+    recent_job = db.query(ScrapeJob).order_by(ScrapeJob.started_at.desc()).first()
+    
+    return {
+        "active_products": total_products,
+        "active_sources": total_sources,
+        "active_mappings": total_mappings,
+        "last_scrape": recent_job.started_at if recent_job else None,
+        "last_scrape_status": recent_job.status if recent_job else None,
+        "celery_enabled": True
+    }
