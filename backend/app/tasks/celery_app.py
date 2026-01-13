@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+# Strip trailing slash from REDIS_URL (common misconfiguration)
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0").rstrip('/')
 
 celery_app = Celery(
     "price_monitor",
