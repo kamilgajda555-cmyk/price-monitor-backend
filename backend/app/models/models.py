@@ -74,7 +74,7 @@ class ProductSource(Base):
     # Current state
     last_checked = Column(DateTime, index=True)
     last_price = Column(Float)
-    last_availability = Column(Boolean, default=True)
+    # Note: last_availability removed (not in DB schema)
     
     # Note: Removed price_change cache columns
     # These will be calculated from price_history when needed
