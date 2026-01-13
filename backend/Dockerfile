@@ -9,62 +9,57 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Playwright dependencies with font packages
+# Install Playwright dependencies
 RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    ca-certificates \
-    libnss3 \
-    libnspr4 \
-    libatk1.0-0 \
+    fonts-liberation \
+    libasound2 \
     libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
     libcups2 \
+    libdbus-1-3 \
     libdrm2 \
-    libxkbcommon0 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libwayland-client0 \
     libxcomposite1 \
     libxdamage1 \
     libxfixes3 \
+    libxkbcommon0 \
     libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    libpango-1.0-0 \
-    libcairo2 \
-    libglib2.0-0 \
-    fonts-liberation \
-    fonts-noto-color-emoji \
-    fonts-unifont \
-    libxshmfence1 \
-    libglu1-mesa \
+    xdg-utils \
+    libu2f-udev \
+    libvulkan1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
+# Copy requirements and install Python dependencies
 COPY requirements.txt .
 
-# Upgrade pip and install email-validator FIRST (critical dependency)
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir email-validator>=2.1.0 dnspython>=2.3.0
+    pip install --no-cache-dir email-validator>=2.1.0 dnspython>=2.3.0 && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Verify email-validator is installed
+# Verify email-validator installation
 RUN python -c "import email_validator; print('email-validator installed successfully')"
 
-# Install Playwright browsers (without separate install-deps - already handled above)
-RUN playwright install chromium --with-deps || playwright install chromium
+# Install Playwright browsers
+RUN playwright install chromium --with-deps
 
 # Copy application code
 COPY . .
 
-# Create directory for migrations
+# Create migrations directory
 RUN mkdir -p /app/migrations
 
 # Expose port
 EXPOSE 8000
 
-# Run database migrations on startup (for web service)
+# Start command with database initialization
 CMD if [ "$RENDER_SERVICE_TYPE" = "web" ]; then \
         python -c "from app.models.database import engine, Base; Base.metadata.create_all(bind=engine)" && \
+        python init_db.py && \
         uvicorn app.main:app --host 0.0.0.0 --port $PORT; \
     else \
         exec "$@"; \
