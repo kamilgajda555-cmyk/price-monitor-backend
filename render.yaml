@@ -58,8 +58,9 @@ services:
           property: connectionString
 
 databases:
-  # Redis - GŁÓWNY CEL
+  # Redis with new plan
   - name: price-monitor-redis
     region: frankfurt
-    plan: starter
+    plan: standard  # Changed from 'starter' to 'standard'
+    maxmemoryPolicy: allkeys-lru
     ipAllowList: []
