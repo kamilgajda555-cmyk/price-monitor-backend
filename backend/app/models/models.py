@@ -32,11 +32,8 @@ class Product(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Cached stats for performance
-    min_price = Column(Float)  # Current minimum price across all sources
-    max_price = Column(Float)  # Current maximum price
-    avg_price = Column(Float)  # Current average price
-    last_scraped = Column(DateTime)  # Last successful scrape
+    # Note: Removed cached stats (min_price, max_price, avg_price, last_scraped)
+    # These will be calculated on-the-fly from price_history when needed
     
     price_history = relationship("PriceHistory", back_populates="product", cascade="all, delete-orphan")
     product_sources = relationship("ProductSource", back_populates="product", cascade="all, delete-orphan")
@@ -58,11 +55,8 @@ class Source(Base):
     scraper_config = Column(JSON)  # CSS selectors, API endpoints, etc.
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    # Scraping metadata
-    last_scrape_started = Column(DateTime)
-    last_scrape_completed = Column(DateTime)
-    last_scrape_status = Column(String)  # success, failed, partial
-    total_products = Column(Integer, default=0)
+    # Note: Removed scraping metadata (last_scrape_*, total_products)
+    # These will be tracked in scrape_jobs table instead
     
     product_sources = relationship("ProductSource", back_populates="source")
 
@@ -82,10 +76,8 @@ class ProductSource(Base):
     last_price = Column(Float)
     last_availability = Column(Boolean, default=True)
     
-    # Stats
-    price_change_1d = Column(Float)  # Change from yesterday (%)
-    price_change_7d = Column(Float)  # Change from 7 days ago (%)
-    price_change_30d = Column(Float)  # Change from 30 days ago (%)
+    # Note: Removed price_change cache columns
+    # These will be calculated from price_history when needed
     
     created_at = Column(DateTime, default=datetime.utcnow)
     

@@ -73,7 +73,6 @@ EXPOSE 8000
 # Start command with database initialization
 CMD if [ "$RENDER_SERVICE_TYPE" = "web" ]; then \
         python -c "from app.models.database import engine, Base; Base.metadata.create_all(bind=engine)" && \
-        python init_db.py && \
         uvicorn app.main:app --host 0.0.0.0 --port $PORT; \
     else \
         exec "$@"; \
