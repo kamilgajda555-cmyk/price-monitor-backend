@@ -9,6 +9,29 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SQL_STATEMENTS = [
+    # Add missing columns to products table (if not exist)
+    """
+    ALTER TABLE products 
+    ADD COLUMN IF NOT EXISTS min_price NUMERIC(10,2),
+    ADD COLUMN IF NOT EXISTS max_price NUMERIC(10,2),
+    ADD COLUMN IF NOT EXISTS avg_price NUMERIC(10,2),
+    ADD COLUMN IF NOT EXISTS last_scraped TIMESTAMP
+    """,
+    # Add missing columns to sources table (if not exist)
+    """
+    ALTER TABLE sources
+    ADD COLUMN IF NOT EXISTS last_scrape_started TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS last_scrape_completed TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS last_scrape_status VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS total_products INTEGER DEFAULT 0
+    """,
+    # Add missing columns to product_sources table (if not exist)
+    """
+    ALTER TABLE product_sources
+    ADD COLUMN IF NOT EXISTS price_change_1d NUMERIC(10,2),
+    ADD COLUMN IF NOT EXISTS price_change_7d NUMERIC(10,2),
+    ADD COLUMN IF NOT EXISTS price_change_30d NUMERIC(10,2)
+    """,
     # Daily Price Stats
     """
     CREATE TABLE IF NOT EXISTS daily_price_stats (
@@ -40,10 +63,6 @@ SQL_STATEMENTS = [
         UNIQUE(source_id, stat_date)
     )
     """,
-    # Add cache columns
-    "ALTER TABLE product_sources ADD COLUMN IF NOT EXISTS price_change_1d NUMERIC(10,2)",
-    "ALTER TABLE product_sources ADD COLUMN IF NOT EXISTS price_change_7d NUMERIC(10,2)",
-    "ALTER TABLE product_sources ADD COLUMN IF NOT EXISTS price_change_30d NUMERIC(10,2)",
     # Indexes
     "CREATE INDEX IF NOT EXISTS idx_daily_price_stats_product_date ON daily_price_stats(product_id, stat_date DESC)",
     "CREATE INDEX IF NOT EXISTS idx_daily_price_stats_source_date ON daily_price_stats(source_id, stat_date DESC)",

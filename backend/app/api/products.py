@@ -38,36 +38,40 @@ def get_products(
     
     products = query.offset(skip).limit(limit).all()
     
-    # Enrich with current prices
+    # Enrich with current prices (safe mode - handle empty tables)
     result = []
     for product in products:
-        # Get latest prices from each source
-        latest_prices = db.query(
-            PriceHistory.source_id,
-            PriceHistory.price,
-            PriceHistory.checked_at,
-            Source.name
-        ).join(Source).filter(
-            PriceHistory.product_id == product.id
-        ).order_by(desc(PriceHistory.checked_at)).all()
-        
-        # Get unique latest price per source
-        seen_sources = set()
-        current_prices = []
-        for price_record in latest_prices:
-            if price_record.source_id not in seen_sources:
-                seen_sources.add(price_record.source_id)
-                current_prices.append({
-                    "source_id": price_record.source_id,
-                    "source_name": price_record.name,
-                    "price": price_record.price,
-                    "checked_at": price_record.checked_at
-                })
+        try:
+            # Get latest prices from each source
+            latest_prices = db.query(
+                PriceHistory.source_id,
+                PriceHistory.price,
+                PriceHistory.checked_at,
+                Source.name
+            ).join(Source, PriceHistory.source_id == Source.id).filter(
+                PriceHistory.product_id == product.id
+            ).order_by(desc(PriceHistory.checked_at)).all()
+            
+            # Get unique latest price per source
+            seen_sources = set()
+            current_prices = []
+            for price_record in latest_prices:
+                if price_record.source_id not in seen_sources:
+                    seen_sources.add(price_record.source_id)
+                    current_prices.append({
+                        "source_id": price_record.source_id,
+                        "source_name": price_record.name,
+                        "price": float(price_record.price) if price_record.price else None,
+                        "checked_at": price_record.checked_at
+                    })
+        except Exception as e:
+            # If price history query fails, just use empty prices
+            current_prices = []
         
         # Calculate price statistics
-        prices = [p["price"] for p in current_prices]
+        prices = [p["price"] for p in current_prices if p["price"] is not None]
         product_dict = {
-            **product.__dict__,
+            **{k: v for k, v in product.__dict__.items() if not k.startswith('_')},
             "current_prices": current_prices,
             "min_price": min(prices) if prices else None,
             "max_price": max(prices) if prices else None,
@@ -84,31 +88,34 @@ def get_product(product_id: int, db: Session = Depends(get_db), current_user = D
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     
-    # Get current prices
-    latest_prices = db.query(
-        PriceHistory.source_id,
-        PriceHistory.price,
-        PriceHistory.checked_at,
-        Source.name
-    ).join(Source).filter(
-        PriceHistory.product_id == product.id
-    ).order_by(desc(PriceHistory.checked_at)).all()
+    # Get current prices (safe mode)
+    try:
+        latest_prices = db.query(
+            PriceHistory.source_id,
+            PriceHistory.price,
+            PriceHistory.checked_at,
+            Source.name
+        ).join(Source, PriceHistory.source_id == Source.id).filter(
+            PriceHistory.product_id == product.id
+        ).order_by(desc(PriceHistory.checked_at)).all()
+        
+        seen_sources = set()
+        current_prices = []
+        for price_record in latest_prices:
+            if price_record.source_id not in seen_sources:
+                seen_sources.add(price_record.source_id)
+                current_prices.append({
+                    "source_id": price_record.source_id,
+                    "source_name": price_record.name,
+                    "price": float(price_record.price) if price_record.price else None,
+                    "checked_at": price_record.checked_at
+                })
+    except Exception as e:
+        current_prices = []
     
-    seen_sources = set()
-    current_prices = []
-    for price_record in latest_prices:
-        if price_record.source_id not in seen_sources:
-            seen_sources.add(price_record.source_id)
-            current_prices.append({
-                "source_id": price_record.source_id,
-                "source_name": price_record.name,
-                "price": price_record.price,
-                "checked_at": price_record.checked_at
-            })
-    
-    prices = [p["price"] for p in current_prices]
+    prices = [p["price"] for p in current_prices if p["price"] is not None]
     product_dict = {
-        **product.__dict__,
+        **{k: v for k, v in product.__dict__.items() if not k.startswith('_')},
         "current_prices": current_prices,
         "min_price": min(prices) if prices else None,
         "max_price": max(prices) if prices else None,
