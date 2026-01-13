@@ -4,6 +4,7 @@ services:
     name: price-monitor-backend
     env: python
     region: frankfurt
+    repo: https://github.com/kamilgajda555-cmyk/price-monitor-backend
     buildCommand: cd backend && pip install -r requirements.txt && playwright install chromium
     startCommand: cd backend && python -c "from app.models.database import engine, Base; Base.metadata.create_all(bind=engine)" && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
@@ -25,6 +26,7 @@ services:
     name: celery-worker
     env: python
     region: frankfurt
+    repo: https://github.com/kamilgajda555-cmyk/price-monitor-backend
     buildCommand: cd backend && pip install -r requirements.txt && playwright install chromium
     startCommand: cd backend && celery -A app.tasks.celery_app worker -l info -Q scraping,default
     envVars:
@@ -42,6 +44,7 @@ services:
     name: celery-beat
     env: python
     region: frankfurt
+    repo: https://github.com/kamilgajda555-cmyk/price-monitor-backend
     buildCommand: cd backend && pip install -r requirements.txt
     startCommand: cd backend && celery -A app.tasks.celery_app beat -l info
     envVars:
@@ -55,14 +58,7 @@ services:
           property: connectionString
 
 databases:
-  # PostgreSQL
-  - name: price-monitor-db
-    region: frankfurt
-    plan: starter
-    databaseName: price_monitor
-    user: price_monitor_user
-
-  # Redis - TO TWORZYMY!
+  # Redis - GŁÓWNY CEL
   - name: price-monitor-redis
     region: frankfurt
     plan: starter
