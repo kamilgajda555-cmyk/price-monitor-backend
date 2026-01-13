@@ -78,4 +78,12 @@ export const reportsAPI = {
     api.post('/reports/generate', data, { responseType: 'blob' }),
 };
 
+// Scraping
+export const scrapingAPI = {
+  scrapeAll: () => api.post('/scrape/all'),
+  scrapeProduct: (productId: number) => api.post(`/scrape/product/${productId}`),
+  scrapeSource: (sourceId: number) => api.post(`/scrape/source/${sourceId}`),
+  getJobs: (params?: any) => api.get('/scrape/jobs', { params }),
+};
+
 export default api;

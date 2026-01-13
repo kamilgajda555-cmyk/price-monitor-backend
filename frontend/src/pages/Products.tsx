@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { productsAPI } from '../services/api';
-import { ProductWithPrices } from '../types';
+import { productsAPI, sourcesAPI, scrapingAPI } from '../services/api';
+import { ProductWithPrices, Source } from '../types';
 
 const Products: React.FC = () => {
   const [products, setProducts] = useState<ProductWithPrices[]>([]);
+  const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddSourceModal, setShowAddSourceModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<number | null>(null);
   const [newProduct, setNewProduct] = useState({
     name: '',
     sku: '',
@@ -16,9 +19,14 @@ const Products: React.FC = () => {
     brand: '',
     base_price: '',
   });
+  const [newSource, setNewSource] = useState({
+    source_id: '',
+    source_url: '',
+  });
 
   useEffect(() => {
     loadProducts();
+    loadSources();
   }, [search]);
 
   const loadProducts = async () => {
@@ -29,6 +37,15 @@ const Products: React.FC = () => {
       console.error('Error loading products:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSources = async () => {
+    try {
+      const response = await sourcesAPI.getAll();
+      setSources(response.data);
+    } catch (error) {
+      console.error('Error loading sources:', error);
     }
   };
 
@@ -44,6 +61,43 @@ const Products: React.FC = () => {
       loadProducts();
     } catch (error) {
       console.error('Error adding product:', error);
+      alert('Error adding product. Check console.');
+    }
+  };
+
+  const handleAddSource = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProduct || !newSource.source_id || !newSource.source_url) {
+      alert('Please select source and enter URL');
+      return;
+    }
+    try {
+      await sourcesAPI.createProductSource({
+        product_id: selectedProduct,
+        source_id: parseInt(newSource.source_id),
+        source_url: newSource.source_url,
+      });
+      setShowAddSourceModal(false);
+      setNewSource({ source_id: '', source_url: '' });
+      setSelectedProduct(null);
+      alert('Source added successfully! You can now scrape this product.');
+      loadProducts();
+    } catch (error) {
+      console.error('Error adding source:', error);
+      alert('Error adding source. Check console.');
+    }
+  };
+
+  const handleScrapeProduct = async (productId: number) => {
+    if (!window.confirm('Start scraping this product now?')) return;
+    try {
+      const response = await scrapingAPI.scrapeProduct(productId);
+      alert(`Scraping started! Job ID: ${response.data.job_id || 'N/A'}`);
+      // Reload after 3 seconds to show updated prices
+      setTimeout(loadProducts, 3000);
+    } catch (error) {
+      console.error('Error starting scrape:', error);
+      alert('Error starting scrape. Check console.');
     }
   };
 
@@ -128,13 +182,32 @@ const Products: React.FC = () => {
                   </span>
                 </td>
                 <td>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => handleDeleteProduct(product.id)}
-                    style={{ padding: '5px 10px', fontSize: '12px' }}
-                  >
-                    Delete
-                  </button>
+                  <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => {
+                        setSelectedProduct(product.id);
+                        setShowAddSourceModal(true);
+                      }}
+                      style={{ padding: '5px 10px', fontSize: '12px' }}
+                    >
+                      + Add Source
+                    </button>
+                    <button
+                      className="btn btn-success btn-sm"
+                      onClick={() => handleScrapeProduct(product.id)}
+                      style={{ padding: '5px 10px', fontSize: '12px' }}
+                    >
+                      🔄 Scrape
+                    </button>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleDeleteProduct(product.id)}
+                      style={{ padding: '5px 10px', fontSize: '12px' }}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -142,6 +215,7 @@ const Products: React.FC = () => {
         </table>
       </div>
 
+      {/* Add Product Modal */}
       {showAddModal && (
         <div
           style={{
@@ -233,6 +307,83 @@ const Products: React.FC = () => {
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => setShowAddModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Source Modal */}
+      {showAddSourceModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              padding: '30px',
+              width: '500px',
+            }}
+          >
+            <h2 style={{ marginBottom: '20px' }}>Add Source to Product</h2>
+            <form onSubmit={handleAddSource}>
+              <div className="form-group">
+                <label className="form-label">Source *</label>
+                <select
+                  className="form-control"
+                  value={newSource.source_id}
+                  onChange={(e) => setNewSource({ ...newSource, source_id: e.target.value })}
+                  required
+                >
+                  <option value="">Select source...</option>
+                  {sources.map((source) => (
+                    <option key={source.id} value={source.id}>
+                      {source.name} ({source.type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Product URL *</label>
+                <input
+                  type="url"
+                  className="form-control"
+                  value={newSource.source_url}
+                  onChange={(e) => setNewSource({ ...newSource, source_url: e.target.value })}
+                  placeholder="https://example.com/product/123"
+                  required
+                />
+                <small style={{ color: '#666' }}>
+                  Enter the full URL to the product on this source
+                </small>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button type="submit" className="btn btn-primary">
+                  Add Source
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowAddSourceModal(false);
+                    setSelectedProduct(null);
+                    setNewSource({ source_id: '', source_url: '' });
+                  }}
                 >
                   Cancel
                 </button>

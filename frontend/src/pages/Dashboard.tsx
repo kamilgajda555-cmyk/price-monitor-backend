@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { dashboardAPI } from '../services/api';
+import { dashboardAPI, scrapingAPI } from '../services/api';
 import { DashboardStats, PriceAlert } from '../types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
@@ -8,6 +8,7 @@ const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentAlerts, setRecentAlerts] = useState<PriceAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [scraping, setScraping] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -28,15 +29,47 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleScrapeAll = async () => {
+    if (!window.confirm('Start scraping ALL products now? This may take several minutes.')) {
+      return;
+    }
+    setScraping(true);
+    try {
+      const response = await scrapingAPI.scrapeAll();
+      alert(`Scraping started! Job ID: ${response.data.job_id || 'N/A'}\n\nCheck back in a few minutes to see updated prices.`);
+      // Reload after 5 seconds
+      setTimeout(loadData, 5000);
+    } catch (error: any) {
+      console.error('Error starting scrape:', error);
+      if (error.response?.data?.detail) {
+        alert(`Error: ${error.response.data.detail}`);
+      } else {
+        alert('Error starting scrape. Check console for details.');
+      }
+    } finally {
+      setScraping(false);
+    }
+  };
+
   if (loading) {
     return <div className="loading">Loading dashboard...</div>;
   }
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Dashboard</h1>
-        <p className="page-subtitle">Overview of your price monitoring system</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1 className="page-title">Dashboard</h1>
+          <p className="page-subtitle">Overview of your price monitoring system</p>
+        </div>
+        <button
+          className="btn btn-success"
+          onClick={handleScrapeAll}
+          disabled={scraping}
+          style={{ fontSize: '16px', padding: '10px 20px' }}
+        >
+          {scraping ? '🔄 Scraping...' : '🚀 Start Scraping All'}
+        </button>
       </div>
 
       {stats && (
@@ -83,7 +116,7 @@ const Dashboard: React.FC = () => {
           <h2 className="card-title">Recent Price Alerts</h2>
         </div>
         {recentAlerts.length === 0 ? (
-          <p>No recent price alerts</p>
+          <p style={{ padding: '20px', color: '#666' }}>No recent price alerts</p>
         ) : (
           <table className="table">
             <thead>
