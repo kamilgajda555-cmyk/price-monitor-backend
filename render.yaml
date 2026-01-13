@@ -1,0 +1,69 @@
+services:
+  # Backend Web Service
+  - type: web
+    name: price-monitor-backend
+    env: python
+    region: frankfurt
+    buildCommand: cd backend && pip install -r requirements.txt && playwright install chromium
+    startCommand: cd backend && python -c "from app.models.database import engine, Base; Base.metadata.create_all(bind=engine)" && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: price-monitor-db
+          property: connectionString
+      - key: REDIS_URL
+        fromDatabase:
+          name: price-monitor-redis
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: RENDER_SERVICE_TYPE
+        value: web
+
+  # Celery Worker
+  - type: worker
+    name: celery-worker
+    env: python
+    region: frankfurt
+    buildCommand: cd backend && pip install -r requirements.txt && playwright install chromium
+    startCommand: cd backend && celery -A app.tasks.celery_app worker -l info -Q scraping,default
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: price-monitor-db
+          property: connectionString
+      - key: REDIS_URL
+        fromDatabase:
+          name: price-monitor-redis
+          property: connectionString
+
+  # Celery Beat
+  - type: worker
+    name: celery-beat
+    env: python
+    region: frankfurt
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && celery -A app.tasks.celery_app beat -l info
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: price-monitor-db
+          property: connectionString
+      - key: REDIS_URL
+        fromDatabase:
+          name: price-monitor-redis
+          property: connectionString
+
+databases:
+  # PostgreSQL
+  - name: price-monitor-db
+    region: frankfurt
+    plan: starter
+    databaseName: price_monitor
+    user: price_monitor_user
+
+  # Redis - TO TWORZYMY!
+  - name: price-monitor-redis
+    region: frankfurt
+    plan: starter
+    ipAllowList: []
