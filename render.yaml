@@ -3,5 +3,5 @@ databases:
     databaseName: redis
     user: redis
     region: frankfurt
-    plan: free
+    plan: standard  # Paid plan to avoid Free tier limit
     ipAllowList: []
