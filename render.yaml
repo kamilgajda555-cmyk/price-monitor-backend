@@ -1,0 +1,7 @@
+databases:
+  - name: price-monitor-redis
+    databaseName: redis
+    user: redis
+    region: frankfurt
+    plan: free
+    ipAllowList: []
