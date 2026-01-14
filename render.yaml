@@ -1,7 +1,0 @@
-databases:
-  - name: price-monitor-redis
-    databaseName: redis
-    user: redis
-    region: frankfurt
-    plan: standard  # Paid plan to avoid Free tier limit
-    ipAllowList: []
