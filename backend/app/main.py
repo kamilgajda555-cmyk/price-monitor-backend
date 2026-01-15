@@ -22,8 +22,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS
-origins = os.getenv("BACKEND_CORS_ORIGINS", "").split(",")
+# CORS - Fixed to handle comma-separated origins properly
+cors_origins_str = os.getenv("BACKEND_CORS_ORIGINS", "")
+origins = [origin.strip() for origin in cors_origins_str.split(",") if origin.strip()]
+
+print(f"🔧 CORS Origins configured: {origins}")  # Debug log
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins if origins else ["*"],
