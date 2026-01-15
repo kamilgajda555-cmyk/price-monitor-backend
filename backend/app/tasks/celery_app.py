@@ -38,48 +38,49 @@ celery_app.conf.beat_schedule = {
     'scrape-all-products-daily': {
         'task': 'app.tasks.scraping_tasks.scrape_all_products',
         'schedule': crontab(hour=2, minute=0),
-        'options': {'queue': 'scraping'},  # Dedicated queue
+        'options': {'queue': 'celery'},
     },
     
     # Aggregation: Daily at 3:00 AM UTC (after scraping completes)
     'calculate-daily-stats': {
         'task': 'app.tasks.aggregation_tasks.calculate_daily_stats',
         'schedule': crontab(hour=3, minute=0),
-        'options': {'queue': 'default'},
+        'options': {'queue': 'celery'},
     },
     
     # Source stats: Daily at 3:30 AM UTC
     'calculate-source-stats': {
         'task': 'app.tasks.aggregation_tasks.calculate_source_stats',
         'schedule': crontab(hour=3, minute=30),
-        'options': {'queue': 'default'},
+        'options': {'queue': 'celery'},
     },
     
     # Price change calculation: Daily at 4:00 AM UTC
     'update-product-source-changes': {
         'task': 'app.tasks.aggregation_tasks.update_product_source_changes',
         'schedule': crontab(hour=4, minute=0),
-        'options': {'queue': 'default'},
+        'options': {'queue': 'celery'},
     },
     
     # Alerts: Every hour
     'check-alerts-hourly': {
         'task': 'app.tasks.alert_tasks.check_all_alerts',
         'schedule': crontab(minute=0),
-        'options': {'queue': 'default'},
+        'options': {'queue': 'celery'},
     },
     
     # Cleanup old data: Weekly on Sunday at 5:00 AM UTC
     'cleanup-old-price-history': {
         'task': 'app.tasks.aggregation_tasks.cleanup_old_data',
         'schedule': crontab(hour=5, minute=0, day_of_week=0),
-        'options': {'queue': 'default'},
+        'options': {'queue': 'celery'},
     },
 }
 
-# Task routing
+# Task routing - wszystkie tasks na default 'celery' queue
+# Worker na Render nasłuchuje tylko na 'celery' queue
 celery_app.conf.task_routes = {
-    'app.tasks.scraping_tasks.*': {'queue': 'scraping'},
-    'app.tasks.aggregation_tasks.*': {'queue': 'default'},
-    'app.tasks.alert_tasks.*': {'queue': 'default'},
+    'app.tasks.scraping_tasks.*': {'queue': 'celery'},
+    'app.tasks.aggregation_tasks.*': {'queue': 'celery'},
+    'app.tasks.alert_tasks.*': {'queue': 'celery'},
 }
