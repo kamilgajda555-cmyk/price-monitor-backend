@@ -58,34 +58,39 @@ def get_recent_alerts(
     # This is a simplified version - you'd want to track actual alerts
     recent_changes = []
     
-    # Query for products with recent price changes
-    seven_days_ago = datetime.utcnow() - timedelta(days=7)
-    
-    products = db.query(Product).filter(Product.is_active == True).limit(limit).all()
-    
-    for product in products:
-        # Get latest and previous price for comparison
-        latest_prices = db.query(PriceHistory).filter(
-            PriceHistory.product_id == product.id,
-            PriceHistory.checked_at >= seven_days_ago
-        ).order_by(PriceHistory.checked_at.desc()).limit(2).all()
+    try:
+        # Query for products with recent price changes
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
         
-        if len(latest_prices) >= 2:
-            new_price = latest_prices[0].price
-            old_price = latest_prices[1].price
-            change_percent = ((new_price - old_price) / old_price) * 100 if old_price > 0 else 0
+        products = db.query(Product).filter(Product.is_active == True).limit(limit).all()
+        
+        for product in products:
+            # Get latest and previous price for comparison
+            latest_prices = db.query(PriceHistory).filter(
+                PriceHistory.product_id == product.id,
+                PriceHistory.checked_at >= seven_days_ago
+            ).order_by(PriceHistory.checked_at.desc()).limit(2).all()
             
-            if abs(change_percent) > 5:  # Only show changes > 5%
-                source = db.query(Source).filter(Source.id == latest_prices[0].source_id).first()
-                recent_changes.append(PriceAlert(
-                    product_id=product.id,
-                    product_name=product.name,
-                    source_name=source.name if source else "Unknown",
-                    old_price=old_price,
-                    new_price=new_price,
-                    change_percent=round(change_percent, 2),
-                    checked_at=latest_prices[0].checked_at
-                ))
+            if len(latest_prices) >= 2:
+                new_price = float(latest_prices[0].price)
+                old_price = float(latest_prices[1].price)
+                change_percent = ((new_price - old_price) / old_price) * 100 if old_price > 0 else 0
+                
+                if abs(change_percent) > 5:  # Only show changes > 5%
+                    source = db.query(Source).filter(Source.id == latest_prices[0].source_id).first()
+                    recent_changes.append(PriceAlert(
+                        product_id=product.id,
+                        product_name=product.name,
+                        source_name=source.name if source else "Unknown",
+                        old_price=old_price,
+                        new_price=new_price,
+                        change_percent=round(change_percent, 2),
+                        checked_at=latest_prices[0].checked_at
+                    ))
+    except Exception as e:
+        print(f"Error getting recent alerts: {e}")
+        # Return empty list instead of crashing
+        pass
     
     return recent_changes[:limit]
 
