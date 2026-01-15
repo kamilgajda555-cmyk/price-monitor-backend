@@ -88,8 +88,13 @@ def trigger_scrape_product(
                 "task_ids": tasks
             }
             
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        print(f"Error in trigger_scrape_product: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Scraping error: {str(e)}")
 
 
 @router.post("/source/{source_id}")
