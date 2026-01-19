@@ -9,7 +9,7 @@ from app.models.database import engine, Base
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    Base.metadata.create_all(bind=engine)
+    # NOTE: Schema is managed by Alembic migrations (see backend/migrations)
     yield
     # Shutdown
     pass
