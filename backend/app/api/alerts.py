@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from sqlalchemy.exc import ProgrammingError
 
 from app.models.database import get_db
 from app.models.models import Alert as AlertModel
@@ -17,12 +18,32 @@ def get_alerts(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    query = db.query(AlertModel).filter(AlertModel.user_id == current_user.id)
-    
-    if is_active is not None:
-        query = query.filter(AlertModel.is_active == is_active)
-    
-    return query.offset(skip).limit(limit).all()
+    try:
+        query = db.query(AlertModel).filter(AlertModel.user_id == current_user.id)
+
+        if is_active is not None:
+            query = query.filter(AlertModel.is_active == is_active)
+
+        return query.offset(skip).limit(limit).all()
+    except ProgrammingError as e:
+        msg = str(e.orig) if getattr(e, "orig", None) else str(e)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "database_schema_mismatch",
+                "message": "Błąd schematu bazy danych. Uruchom migracje Alembic.",
+                "db_error": msg,
+            },
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "alerts_list_failed",
+                "message": "Nie udało się pobrać alertów.",
+                "details": str(e),
+            },
+        )
 
 @router.get("/{alert_id}", response_model=Alert)
 def get_alert(alert_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):

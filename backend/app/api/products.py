@@ -8,6 +8,8 @@ from app.models.database import get_db
 from app.models.models import Product as ProductModel, PriceHistory, ProductSource, Source
 from app.schemas.schemas import Product, ProductCreate, ProductUpdate, ProductWithPrices, BulkProductImport
 from app.api.auth import get_current_user
+from sqlalchemy.exc import SQLAlchemyError
+from decimal import Decimal
 
 router = APIRouter()
 
@@ -172,30 +174,60 @@ def get_price_history(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    # Validate product exists for clearer 404
+    product = db.query(ProductModel).filter(ProductModel.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail={"error": "product_not_found", "product_id": product_id})
+
     date_from = datetime.utcnow() - timedelta(days=days)
-    
-    query = db.query(PriceHistory, Source.name).join(Source).filter(
-        PriceHistory.product_id == product_id,
-        PriceHistory.checked_at >= date_from
-    )
-    
-    if source_id:
-        query = query.filter(PriceHistory.source_id == source_id)
-    
-    history = query.order_by(PriceHistory.checked_at).all()
-    
-    return [
-        {
-            "id": h[0].id,
-            "source_id": h[0].source_id,
-            "source_name": h[1],
-            "price": h[0].price,
-            "currency": h[0].currency,
-            "availability": h[0].availability,
-            "checked_at": h[0].checked_at
-        }
-        for h in history
-    ]
+    try:
+        query = db.query(PriceHistory, Source.name).join(Source).filter(
+            PriceHistory.product_id == product_id,
+            PriceHistory.checked_at >= date_from
+        )
+
+        if source_id:
+            query = query.filter(PriceHistory.source_id == source_id)
+
+        history = query.order_by(PriceHistory.checked_at).all()
+
+        def to_float(v):
+            if v is None:
+                return None
+            if isinstance(v, Decimal):
+                return float(v)
+            return float(v)
+
+        return [
+            {
+                "id": h[0].id,
+                "source_id": h[0].source_id,
+                "source_name": h[1],
+                "price": to_float(h[0].price),
+                "currency": h[0].currency,
+                "availability": h[0].availability,
+                "checked_at": h[0].checked_at
+            }
+            for h in history
+        ]
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "price_history_query_failed",
+                "message": "Nie udało się pobrać historii cen.",
+                "db_error": str(e),
+            },
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "price_history_failed",
+                "message": "Błąd serwera podczas pobierania historii cen.",
+                "details": str(e),
+            },
+        )
 
 @router.post("/bulk-import")
 def bulk_import_products(
